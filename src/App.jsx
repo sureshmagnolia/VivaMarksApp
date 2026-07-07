@@ -60,7 +60,7 @@ function App() {
       <header className="header glass-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <FileSpreadsheet size={32} color="#60a5fa" />
-          <h1 className="header-title">Viva Marks Consolidator</h1>
+          <h1 className="header-title">Project Viva Marks Consolidator</h1>
         </div>
       </header>
 
