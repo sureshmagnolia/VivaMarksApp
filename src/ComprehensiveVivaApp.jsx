@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Trash2, Download, Upload } from 'lucide-react';
 import './index.css';
 
 import DetailsForm from './components/DetailsForm';
@@ -12,6 +12,7 @@ import ClearDataModal from './components/ClearDataModal';
 function ComprehensiveVivaApp() {
   const queryParams = new URLSearchParams(window.location.search);
   const printMode = queryParams.get('print');
+  const fileInputRef = useRef(null);
 
   const [details, setDetails] = useState(() => {
     const saved = localStorage.getItem('comp_viva_details');
@@ -83,6 +84,48 @@ function ComprehensiveVivaApp() {
     setCurrentTab('students');
   };
 
+  const handleExportJSON = () => {
+    const data = {
+      app: 'ComprehensiveVivaApp',
+      timestamp: new Date().toISOString(),
+      details,
+      students
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Comp_Viva_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJSON = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.details && data.students) {
+          setDetails(data.details);
+          setStudents(data.students);
+          alert('Data imported successfully!');
+        } else {
+          alert('Invalid file format. Could not import data.');
+        }
+      } catch (err) {
+        alert('Error reading JSON file.');
+      }
+      // Reset input so the same file can be selected again if needed
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   const tabs = [
     { id: 'students', label: '1. Students Data' },
     { id: 'examiner1', label: '2. Examiner 1' },
@@ -96,19 +139,50 @@ function ComprehensiveVivaApp() {
 
   return (
     <div className="app-container">
-      <header className="header glass-panel" style={{ background: 'linear-gradient(to right, #4c1d95, #6d28d9)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="header glass-panel" style={{ background: 'linear-gradient(to right, #4c1d95, #6d28d9)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <BookOpen size={32} color="#a78bfa" />
           <h1 className="header-title">Comprehensive Viva Marks Consolidator</h1>
         </div>
-        <button 
-          className="btn btn-danger" 
-          onClick={() => setIsClearModalOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}
-        >
-          <Trash2 size={18} />
-          Reset App Data
-        </button>
+        
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} className="header-actions">
+          <input 
+            type="file" 
+            accept=".json" 
+            ref={fileInputRef} 
+            onChange={handleImportJSON} 
+            style={{ display: 'none' }} 
+          />
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => fileInputRef.current.click()}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', flex: '1 1 auto' }}
+            title="Import Data from JSON file"
+          >
+            <Upload size={18} />
+            Import
+          </button>
+          
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleExportJSON}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', flex: '1 1 auto' }}
+            title="Export Data to JSON file"
+          >
+            <Download size={18} />
+            Export
+          </button>
+
+          <button 
+            className="btn btn-danger" 
+            onClick={() => setIsClearModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', flex: '1 1 auto' }}
+            title="Clear all local app data"
+          >
+            <Trash2 size={18} />
+            Reset Data
+          </button>
+        </div>
       </header>
 
       <main style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
