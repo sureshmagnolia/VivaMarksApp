@@ -110,12 +110,12 @@ function ComprehensiveVivaApp() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (data.details && data.students) {
+        if (data.app === 'ComprehensiveVivaApp' && data.details && data.students) {
           setDetails(data.details);
           setStudents(data.students);
           alert('Data imported successfully!');
         } else {
-          alert('Invalid file format. Could not import data.');
+          alert('Error: You are trying to upload a file that belongs to a different app or is invalid. Please upload a Comprehensive Viva backup file.');
         }
       } catch (err) {
         alert('Error reading JSON file.');
