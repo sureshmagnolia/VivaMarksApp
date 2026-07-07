@@ -1,15 +1,20 @@
 import React from 'react';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
-const StudentsTab = ({ students, setStudents, handleChange }) => {
+const CompStudentsTab = ({ students, setStudents, handleChange }) => {
+  const getDefaultGrades = () => {
+    const defaultGrades = {};
+    for (let i = 1; i <= 15; i++) defaultGrades[`q${i}`] = 'A+';
+    return defaultGrades;
+  };
+
   const handleAddStudent = () => {
     setStudents(prev => [...prev, {
       id: Date.now().toString(),
       registerNumber: '',
       name: '',
-      topic: '',
-      structural: 'A+', editing: 'A+', references: 'A+', title: 'A+', supporting: 'A+', results: 'A+', novelty: 'A+',
-      presentationEx1: 'A+', presentationEx2: 'A+', vivaEx1: 'A+', vivaEx2: 'A+'
+      ex1: getDefaultGrades(),
+      ex2: getDefaultGrades()
     }]);
   };
 
@@ -38,9 +43,8 @@ const StudentsTab = ({ students, setStudents, handleChange }) => {
       id: Date.now().toString(),
       registerNumber: nextReg,
       name: '',
-      topic: '',
-      structural: 'A+', editing: 'A+', references: 'A+', title: 'A+', supporting: 'A+', results: 'A+', novelty: 'A+',
-      presentationEx1: 'A+', presentationEx2: 'A+', vivaEx1: 'A+', vivaEx2: 'A+'
+      ex1: getDefaultGrades(),
+      ex2: getDefaultGrades()
     };
 
     // Insert right below the current index
@@ -118,4 +122,4 @@ const StudentsTab = ({ students, setStudents, handleChange }) => {
   );
 };
 
-export default StudentsTab;
+export default CompStudentsTab;

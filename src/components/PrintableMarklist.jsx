@@ -34,10 +34,10 @@ const PrintableMarklist = ({ details, students, previewMode = false }) => {
         <h2 className="print-subtitle">GRADE SHEET OF DISSERTATION EVALUATION</h2>
       </div>
 
-      <div className="print-details">
-        <p>Name of the centre: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{details.centre || ''}</p>
-        <p>Date of examination: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{details.date || ''}</p>
-        <p>Course name /Course code : &nbsp;{details.courseCode || ''}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' }}>
+        <p>Name of the centre: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{details.centre || ''}</p>
+        <p>Date of examination: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{details.date ? details.date.split('-').reverse().join('/') : ''}</p>
+        <p>Course name /Course code : &nbsp;&nbsp;{details.courseCode || ''}</p>
       </div>
 
       <table className="print-table">

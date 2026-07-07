@@ -130,6 +130,52 @@ h1, h2, h3, h4, h5, h6 {
   gap: 2rem;
 }
 
+/* Master App Switcher */
+.master-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.master-nav {
+  display: flex;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.master-tab {
+  padding: 1.25rem 2rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+  font-family: 'Inter', sans-serif;
+}
+
+.master-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.master-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.master-content {
+  flex: 1;
+}
+
 .header {
   display: flex;
   justify-content: space-between;

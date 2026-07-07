@@ -23,11 +23,13 @@ export const generatePDF = (details, students) => {
   doc.setFontSize(9);
   doc.text("GRADE SHEET OF DISSERTATION EVALUATION", pageWidth / 2, 25, { align: 'center' });
 
+  const formattedDate = details.date ? details.date.split('-').reverse().join('/') : '';
+
   // Details section
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.text(`Name of the centre:           ${details.centre}`, 14, 35);
-  doc.text(`Date of examination:          ${details.date}`, 14, 40);
+  doc.text(`Date of examination:          ${formattedDate}`, 14, 40);
   doc.text(`Course name /Course code :    ${details.courseCode}`, 14, 45);
 
   // Table Data
