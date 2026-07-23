@@ -1,4 +1,5 @@
 import React from 'react';
+import { getGradeColorStyle, GRADE_OPTION_STYLES } from '../utils/gradeColors';
 
 const CompExaminerTab = ({ students, handleChange, examiner, title }) => {
   const questions = Array.from({ length: 15 }, (_, i) => `q${i + 1}`);
@@ -49,26 +50,44 @@ const CompExaminerTab = ({ students, handleChange, examiner, title }) => {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', 
                 gap: '1rem' 
               }}>
-                {questions.map((q, i) => (
-                  <div key={q} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '500', textAlign: 'center' }}>
-                      Q {i + 1}
-                    </label>
-                    <select
-                      className="table-input"
-                      style={{ padding: '6px', fontSize: '0.9rem', width: '100%' }}
-                      value={studentGrades[q] || 'A+'}
-                      onChange={(e) => handleChange(student.id, q, e.target.value, examiner)}
-                    >
-                      <option value="A+">A+</option>
-                      <option value="A">A</option>
-                      <option value="B">B</option>
-                      <option value="C">C</option>
-                      <option value="D">D</option>
-                      <option value="E">E</option>
-                    </select>
-                  </div>
-                ))}
+                {questions.map((q, i) => {
+                  const currentGrade = studentGrades[q] || 'A+';
+                  const styleObj = getGradeColorStyle(currentGrade);
+
+                  return (
+                    <div key={q} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '500', textAlign: 'center' }}>
+                        Q {i + 1}
+                      </label>
+                      <select
+                        className="table-input"
+                        style={{
+                          padding: '6px',
+                          fontSize: '0.9rem',
+                          width: '100%',
+                          textAlign: 'center',
+                          borderRadius: '6px',
+                          border: `1px solid ${styleObj.borderColor}`,
+                          backgroundColor: styleObj.backgroundColor,
+                          color: styleObj.color,
+                          fontWeight: styleObj.fontWeight,
+                          textShadow: styleObj.textShadow,
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer'
+                        }}
+                        value={currentGrade}
+                        onChange={(e) => handleChange(student.id, q, e.target.value, examiner)}
+                      >
+                        <option value="A+" style={GRADE_OPTION_STYLES['A+']}>A+</option>
+                        <option value="A" style={GRADE_OPTION_STYLES['A']}>A</option>
+                        <option value="B" style={GRADE_OPTION_STYLES['B']}>B</option>
+                        <option value="C" style={GRADE_OPTION_STYLES['C']}>C</option>
+                        <option value="D" style={GRADE_OPTION_STYLES['D']}>D</option>
+                        <option value="E" style={GRADE_OPTION_STYLES['E']}>E</option>
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

@@ -1,26 +1,46 @@
 import React from 'react';
 import { calculateStudentScores } from '../utils/calculations';
+import { getGradeColorStyle, GRADE_OPTION_STYLES } from '../utils/gradeColors';
 
 const GRADES = ['', 'A+', 'A', 'B', 'C', 'D', 'E'];
 
 const PresentationVivaTab = ({ students, handleChange }) => {
-  const renderDropdown = (student, field, label) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-      <label style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '500' }}>
-        {label} <span style={{ color: '#64748b' }}>(x1.5)</span>
-      </label>
-      <select
-        className="table-input"
-        value={student[field]}
-        onChange={(e) => handleChange(student.id, field, e.target.value)}
-        style={{ padding: '8px', fontSize: '0.9rem', width: '100%', backgroundColor: 'rgba(15, 23, 42, 0.4)' }}
-      >
-        {GRADES.map(g => (
-          <option key={g} value={g}>{g === '' ? 'Select...' : g}</option>
-        ))}
-      </select>
-    </div>
-  );
+  const renderDropdown = (student, field, label) => {
+    const currentGrade = student[field] || '';
+    const styleObj = getGradeColorStyle(currentGrade);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <label style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '500' }}>
+          {label} <span style={{ color: '#64748b' }}>(x1.5)</span>
+        </label>
+        <select
+          className="table-input"
+          value={currentGrade}
+          onChange={(e) => handleChange(student.id, field, e.target.value)}
+          style={{
+            padding: '8px',
+            fontSize: '0.9rem',
+            width: '100%',
+            borderRadius: '6px',
+            border: `1px solid ${styleObj.borderColor}`,
+            backgroundColor: styleObj.backgroundColor,
+            color: styleObj.color,
+            fontWeight: styleObj.fontWeight,
+            textShadow: styleObj.textShadow,
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+        >
+          {GRADES.map(g => (
+            <option key={g} value={g} style={GRADE_OPTION_STYLES[g] || GRADE_OPTION_STYLES['']}>
+              {g === '' ? 'Select...' : g}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
 
   return (
     <div className="animate-fade-in">
