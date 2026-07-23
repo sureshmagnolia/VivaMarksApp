@@ -302,6 +302,7 @@ function App() {
   const [statusMsg, setStatusMsg] = useState('');
   const [p2pLogs, setP2pLogs] = useState([]);
   const [syncMode, setSyncMode] = useState('p2p'); // 'p2p' | 'https'
+  const [connectionLostReason, setConnectionLostReason] = useState(null);
 
   const activeRoomCodeRef = useRef('');
   const lastHttpsTsRef = useRef(0);
@@ -309,6 +310,7 @@ function App() {
   const cloudPollingIntervalRef = useRef(null);
   const hasSentCloudPingRef = useRef(false);
   const hasReceivedCloudStateRef = useRef(false);
+  const lastHostSeenRef = useRef(Date.now());
 
   const addP2pLog = (msg) => {
     const time = new Date().toLocaleTimeString();
@@ -381,6 +383,84 @@ function App() {
     lastPasteKeyRef.current = '';
     hasReceivedCloudStateRef.current = false;
   };
+
+  // Heartbeat Sender & Liveness Presence Monitor
+  useEffect(() => {
+    const heartbeatInterval = setInterval(() => {
+      if (peerStatus === 'connected' || peerStatus === 'connecting') {
+        const payload = {
+          type: 'PEER_HEARTBEAT',
+          senderRole: deviceRole,
+          senderName: deviceName,
+          senderActiveTab: currentAppTab,
+          timestamp: Date.now()
+        };
+
+        if (isHostRef.current) {
+          hostConnectionsRef.current.forEach(conn => {
+            if (conn.open) conn.send(payload);
+          });
+        } else if (guestConnectionRef.current && guestConnectionRef.current.open) {
+          guestConnectionRef.current.send(payload);
+        }
+      }
+    }, 3500);
+
+    const livenessCheckInterval = setInterval(() => {
+      const now = Date.now();
+
+      // Prune inactive roster entries (>8s)
+      setConnectedPeers(prev => {
+        let updated = false;
+        const next = { ...prev };
+        Object.entries(next).forEach(([key, peer]) => {
+          if (now - (peer.lastSeen || 0) > 8000) {
+            delete next[key];
+            updated = true;
+          }
+        });
+        return updated ? next : prev;
+      });
+
+      // Guest heartbeat timeout check: If connected to Host but no signal for > 9.5s
+      if (!isHostRef.current && (peerStatus === 'connected' || peerStatus === 'connecting')) {
+        if (now - lastHostSeenRef.current > 9500) {
+          addP2pLog('Guest: Host heartbeat timeout (>9.5s). Connection lost!');
+          disconnectPeer();
+          setConnectionLostReason('Host heartbeat timeout (Host lost connection, closed tab, or refreshed).');
+        }
+      }
+    }, 2500);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(livenessCheckInterval);
+    };
+  }, [peerStatus, deviceRole, deviceName, currentAppTab]);
+
+  // Notify connected peers when user leaves or refreshes the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const payload = {
+        type: 'PEER_DISCONNECT',
+        senderRole: deviceRole,
+        senderName: deviceName,
+        isHost: isHostRef.current,
+        timestamp: Date.now()
+      };
+
+      if (isHostRef.current) {
+        hostConnectionsRef.current.forEach(conn => {
+          if (conn.open) conn.send(payload);
+        });
+      } else if (guestConnectionRef.current && guestConnectionRef.current.open) {
+        guestConnectionRef.current.send(payload);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [deviceRole, deviceName]);
 
   // Zero-Preflight Fast HTTPS Cloud Relay (ntfy.sh raw + keyvalue.immanuel.co)
   const pushToHttpsCloud = async (pd, ps, cd, cs, codeOverride, incomingTs) => {
@@ -759,7 +839,10 @@ function App() {
     }
 
     conn.on('data', (data) => {
-      if (data && data.type === 'GLOBAL_SYNC_STATE') {
+      if (!data) return;
+      handleIncomingPeerState(data, conn.peer);
+
+      if (data.type === 'GLOBAL_SYNC_STATE') {
         addP2pLog(`Guest: Received state update from host.`);
         isInternalHistoryChangeRef.current = true;
         try {
@@ -771,7 +854,6 @@ function App() {
           if (data.compDetails) setCompDetails(data.compDetails);
           if (data.compStudents) setCompStudents(data.compStudents);
 
-          handleIncomingPeerState(data, conn.peer);
           checkAndPromptRoleConflict(data.senderRole, data.senderName);
 
           setPeerStatus('connected');
@@ -796,6 +878,24 @@ function App() {
   };
 
   const handleIncomingPeerState = (data, peerId = 'remote') => {
+    if (!data) return;
+
+    if (!isHostRef.current) {
+      lastHostSeenRef.current = Date.now();
+    }
+
+    if (data.type === 'PEER_DISCONNECT' || data.type === 'ROOM_RESET') {
+      if (!isHostRef.current && (data.isHost || data.type === 'ROOM_RESET')) {
+        disconnectPeer();
+        setConnectionLostReason(
+          data.type === 'ROOM_RESET'
+            ? 'The Host reset room examination data.'
+            : 'The Host closed or refreshed their browser tab.'
+        );
+      }
+      return;
+    }
+
     if (data.senderName) {
       const key = peerId !== 'remote' ? peerId : data.senderName;
       setConnectedPeers(prev => ({
@@ -1035,6 +1135,66 @@ function App() {
           />
         )}
       </div>
+
+      {connectionLostReason && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #1e1b4b, #0f172a)',
+            border: '2px solid #ef4444',
+            borderRadius: '16px',
+            padding: '1.75rem',
+            maxWidth: '480px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 20px 50px rgba(239, 68, 68, 0.3)',
+            color: '#fff'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🔌</div>
+            <h2 style={{ fontSize: '1.35rem', color: '#fca5a5', marginBottom: '0.75rem', fontWeight: 'bold' }}>
+              Sync Connection Lost!
+            </h2>
+            <p style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+              {connectionLostReason}
+            </p>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.82rem', color: '#f87171', marginBottom: '1.5rem', textAlign: 'left' }}>
+              💡 <b>Data Safety Note:</b> All your local grade entries are safely stored in IndexedDB. Ask the Host for the new room code and click below to rejoin.
+            </div>
+            <button
+              onClick={() => {
+                setConnectionLostReason(null);
+                handleTabSwitch('sync');
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                fontWeight: 'bold',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              Rejoin Live Sync Session
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
