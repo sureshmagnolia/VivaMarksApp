@@ -2,7 +2,7 @@ export const getGradeColorStyle = (grade) => {
   switch (grade) {
     case 'A+':
       return {
-        backgroundColor: '#15803d', // Rich Emerald Green
+        backgroundColor: '#16a34a', // Pure Emerald Green
         color: '#ffffff',
         borderColor: '#22c55e',
         fontWeight: 'bold',
@@ -10,9 +10,9 @@ export const getGradeColorStyle = (grade) => {
       };
     case 'A':
       return {
-        backgroundColor: '#047857', // Deep Teal Green
+        backgroundColor: '#0d9488', // Vibrant Teal Green
         color: '#ffffff',
-        borderColor: '#10b981',
+        borderColor: '#14b8a6',
         fontWeight: 'bold',
         textShadow: '0px 1px 2px rgba(0, 0, 0, 0.5)'
       };
@@ -68,7 +68,7 @@ export const getGradeColorStyle = (grade) => {
 
 export const GRADE_OPTION_STYLES = {
   'A+': { backgroundColor: '#0f172a', color: '#4ade80', fontWeight: 'bold' },
-  'A':  { backgroundColor: '#0f172a', color: '#34d399', fontWeight: 'bold' },
+  'A':  { backgroundColor: '#0f172a', color: '#2dd4bf', fontWeight: 'bold' },
   'B':  { backgroundColor: '#0f172a', color: '#60a5fa', fontWeight: 'bold' },
   'C':  { backgroundColor: '#0f172a', color: '#fbbf24', fontWeight: 'bold' },
   'D':  { backgroundColor: '#0f172a', color: '#fb923c', fontWeight: 'bold' },
