@@ -490,6 +490,9 @@ function App() {
       projectStudents: ps,
       compDetails: cd,
       compStudents: cs,
+      senderRole: deviceRole,
+      senderName: deviceName,
+      senderActiveTab: currentAppTab,
       timestamp: ts
     };
     const payloadStr = JSON.stringify(payload);
@@ -608,6 +611,8 @@ function App() {
 
       if (data && data.timestamp) {
         hasReceivedCloudStateRef.current = true;
+        handleIncomingPeerState(data, 'CloudHost');
+
         if (!isHostRef.current && !hasSentCloudPingRef.current) {
           hasSentCloudPingRef.current = true;
           setTimeout(() => {
@@ -796,13 +801,7 @@ function App() {
     });
   };
 
-  const joinPeerRoom = (codeToJoin) => {
-    const cleanCode = codeToJoin.trim().toUpperCase();
-    if (!cleanCode || cleanCode.length !== 6) {
-      alert('Please enter a valid 6-character Room Code.');
-      return;
-    }
-
+  const joinPeerRoom = (cleanCode) => {
     disconnectPeer();
     clearP2pLogs();
     isHostRef.current = false;
@@ -935,6 +934,7 @@ function App() {
       projectStudents: ps,
       compDetails: cd,
       compStudents: cs,
+      senderRole: deviceRole,
       senderName: deviceName,
       senderActiveTab: currentAppTab,
       timestamp: ts
@@ -955,14 +955,6 @@ function App() {
       senderActiveTab: currentAppTab,
       timestamp: Date.now()
     };
-    
-    // Update local tracker so the sender ignores this exact payload if it echoes back via Cloud
-    lastHttpsTsRef.current = payload.timestamp;
-
-    // 1. Broadcast to same-device local tabs (0ms latency)
-    if (bcRef.current) {
-      bcRef.current.postMessage(payload);
-    }
 
     // 2. Broadcast to P2P network peers
     if (isHostRef.current) {
