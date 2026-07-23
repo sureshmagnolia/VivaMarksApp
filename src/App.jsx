@@ -325,6 +325,25 @@ function App() {
   const isHostRef = useRef(false);
   const hostConnectionsRef = useRef(new Map());
   const guestConnectionRef = useRef(null);
+  const hasPromptedRoleConflictRef = useRef(false);
+
+  const checkAndPromptRoleConflict = (incomingRole, senderName = 'The Host') => {
+    if (!isHostRef.current && !hasPromptedRoleConflictRef.current && incomingRole && deviceRole === incomingRole) {
+      hasPromptedRoleConflictRef.current = true;
+      const otherRole = incomingRole === 'ex1' ? 'ex2' : 'ex1';
+      const currentRoleLabel = incomingRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
+      const otherRoleLabel = otherRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
+
+      setTimeout(() => {
+        const accept = window.confirm(
+          `⚠️ Role Conflict Detected!\n\n${senderName} is already assigned as "${currentRoleLabel}".\n\nWould you like to set your device's role to "${otherRoleLabel}" instead?`
+        );
+        if (accept) {
+          setDeviceRole(otherRole);
+        }
+      }, 300);
+    }
+  };
 
   const generateRoomCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -692,6 +711,7 @@ function App() {
     clearP2pLogs();
     isHostRef.current = false;
     hasSentCloudPingRef.current = false;
+    hasPromptedRoleConflictRef.current = false;
 
     setPeerStatus('connecting');
     setStatusMsg(`Connecting to Room ${cleanCode}...`);
@@ -751,6 +771,9 @@ function App() {
           if (data.compDetails) setCompDetails(data.compDetails);
           if (data.compStudents) setCompStudents(data.compStudents);
 
+          handleIncomingPeerState(data, conn.peer);
+          checkAndPromptRoleConflict(data.senderRole, data.senderName);
+
           setPeerStatus('connected');
           setStatusMsg(`Synced update received at ${new Date().toLocaleTimeString()}`);
         } catch (e) {
@@ -788,18 +811,18 @@ function App() {
   };
 
   const sendStateToConn = (conn, pd, ps, cd, cs) => {
-    if (conn && conn.open) {
-      const ts = Date.now();
-      if (ts > lastHttpsTsRef.current) lastHttpsTsRef.current = ts;
-      conn.send({
-        type: 'GLOBAL_SYNC_STATE',
-        projectDetails: pd,
-        projectStudents: ps,
-        senderName: deviceName,
-        senderActiveTab: currentAppTab,
-        timestamp: ts
-      });
-    }
+    const ts = Date.now();
+    if (ts > lastHttpsTsRef.current) lastHttpsTsRef.current = ts;
+    conn.send({
+      type: 'GLOBAL_SYNC_STATE',
+      projectDetails: pd,
+      projectStudents: ps,
+      compDetails: cd,
+      compStudents: cs,
+      senderName: deviceName,
+      senderActiveTab: currentAppTab,
+      timestamp: ts
+    });
   };
 
   const broadcastGlobalState = (pd, ps, cd, cs) => {

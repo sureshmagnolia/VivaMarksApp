@@ -50,14 +50,31 @@ const CompExaminerTab = ({
       </div>
 
       {isRoleMismatch && (
-        <div style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid #eab308', padding: '1rem', borderRadius: '10px', marginBottom: '1.25rem', color: '#fde047', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
+        <div style={{ 
+          position: 'sticky', 
+          top: '0px', 
+          zIndex: 100, 
+          background: 'linear-gradient(135deg, #facc15, #eab308)', 
+          border: '2px solid #fef08a', 
+          padding: '1rem 1.25rem', 
+          borderRadius: '12px', 
+          marginBottom: '1.5rem', 
+          color: '#000', 
+          display: 'flex', 
+          justify: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '12px',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ flex: '1 1 300px', fontSize: '0.95rem', fontWeight: '700', lineHeight: '1.4' }}>
             ⚠️ <strong>Role Mismatch Warning:</strong> Your device ({deviceName}) is set as <strong>{deviceRole === 'ex1' ? 'Examiner 1' : 'Examiner 2'}</strong>, but you are currently viewing <strong>{title}</strong>. Avoid entering marks here to prevent overwriting your partner's entries.
           </div>
           {onSwitchTab && (
             <button
               onClick={() => onSwitchTab(deviceRole === 'ex1' ? 'examiner1' : 'examiner2')}
-              style={{ background: '#eab308', color: '#000', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+              style={{ background: '#000', color: '#fde047', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.88rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
             >
               Switch to My Tab ({deviceRole === 'ex1' ? 'Examiner 1' : 'Examiner 2'})
             </button>
@@ -78,8 +95,8 @@ const CompExaminerTab = ({
           
           return (
             <div key={student.id} className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'baseline' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff' }}>
                     {student.registerNumber || 'No Register Number'}
                   </span>
@@ -95,10 +112,10 @@ const CompExaminerTab = ({
                 </div>
               </div>
               
-              <div style={{ 
+              <div className="questions-grid" style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', 
-                gap: '1rem' 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', 
+                gap: '0.75rem' 
               }}>
                 {questions.map((q, i) => {
                   const currentGrade = studentGrades[q] || 'A+';

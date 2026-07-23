@@ -512,25 +512,40 @@ body.print-mode #root {
   }
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness & Touch Optimization */
 @media (max-width: 768px) {
   .app-container {
-    padding: 0.75rem;
+    padding: 0.5rem;
     gap: 1rem;
   }
   
+  .master-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    padding: 1rem !important;
+    gap: 0.75rem !important;
+    text-align: center;
+  }
+
+  .master-header > div {
+    flex-direction: column;
+    align-items: center !important;
+    text-align: center;
+  }
+  
   .master-nav {
-    padding: 0 0.5rem;
+    padding: 0 0.25rem;
     flex-wrap: wrap;
     justify-content: center;
   }
   
   .master-tab {
-    padding: 1rem;
-    font-size: 0.95rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
     white-space: normal;
     text-align: center;
-    flex: 1 1 45%;
+    flex: 1 1 30%;
+    min-height: 44px;
   }
   
   .header {
@@ -566,8 +581,8 @@ body.print-mode #root {
   }
   
   .tab-btn {
-    flex: 1 1 40%;
-    padding: 0.6rem 0.25rem;
+    flex: 1 1 45%;
+    padding: 0.65rem 0.5rem;
     font-size: 0.85rem;
     white-space: normal;
     text-align: center;
@@ -575,10 +590,41 @@ body.print-mode #root {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 44px;
   }
   
   .tab-content {
+    padding: 0.75rem !important;
+  }
+
+  .glass-panel {
     padding: 1rem !important;
+    border-radius: 12px;
+  }
+
+  /* Compact grid for 15 question grade dropdowns on mobile */
+  .questions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  /* Touch friendly selects and inputs */
+  select, input, button {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .master-tab {
+    flex: 1 1 100%;
+  }
+
+  .tab-btn {
+    flex: 1 1 50%;
+  }
+
+  .questions-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 
