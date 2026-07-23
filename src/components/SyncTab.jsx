@@ -160,6 +160,8 @@ function SyncTab({
                 id="deviceRoleSelect"
                 value={deviceRole}
                 onChange={(e) => setDeviceRole(e.target.value)}
+                disabled={peerStatus !== 'disconnected'}
+                title={peerStatus !== 'disconnected' ? "Role is locked while connected to room. Disconnect room session to change role." : "Select device role"}
                 style={{
                   background: deviceRole === 'ex1' ? '#15803d' : deviceRole === 'ex2' ? '#1d4ed8' : '#7c3aed',
                   color: '#ffffff',
@@ -168,7 +170,8 @@ function SyncTab({
                   padding: '8px 14px',
                   fontSize: '0.9rem',
                   fontWeight: 'bold',
-                  cursor: 'pointer',
+                  cursor: peerStatus !== 'disconnected' ? 'not-allowed' : 'pointer',
+                  opacity: peerStatus !== 'disconnected' ? 0.75 : 1,
                   minWidth: '220px',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                   outline: 'none'
@@ -184,11 +187,17 @@ function SyncTab({
                   Chairman / Viewer (Read-Only Monitoring)
                 </option>
               </select>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                {deviceRole === 'ex1' && '• Configured to enter Examiner 1 marks'}
-                {deviceRole === 'ex2' && '• Configured to enter Examiner 2 marks'}
-                {deviceRole === 'viewer' && '• Monitoring & Read-only mode'}
-              </span>
+              {peerStatus !== 'disconnected' ? (
+                <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  🔒 Role Locked — Exit/Disconnect room to change role
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                  {deviceRole === 'ex1' && '• Configured to enter Examiner 1 marks'}
+                  {deviceRole === 'ex2' && '• Configured to enter Examiner 2 marks'}
+                  {deviceRole === 'viewer' && '• Monitoring & Read-only mode'}
+                </span>
+              )}
             </div>
           </div>
 

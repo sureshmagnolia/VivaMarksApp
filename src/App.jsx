@@ -1046,6 +1046,8 @@ function App() {
           <select
             value={deviceRole}
             onChange={(e) => setDeviceRole(e.target.value)}
+            disabled={peerStatus !== 'disconnected'}
+            title={peerStatus !== 'disconnected' ? "Role is locked while connected to room. Disconnect room session to change role." : "Select your device role"}
             style={{
               backgroundColor: deviceRole === 'ex1' ? '#15803d' : deviceRole === 'ex2' ? '#1d4ed8' : '#7c3aed',
               color: '#ffffff',
@@ -1054,7 +1056,8 @@ function App() {
               padding: '4px 10px',
               fontSize: '0.8rem',
               fontWeight: 'bold',
-              cursor: 'pointer',
+              cursor: peerStatus !== 'disconnected' ? 'not-allowed' : 'pointer',
+              opacity: peerStatus !== 'disconnected' ? 0.85 : 1,
               outline: 'none'
             }}
           >
@@ -1062,6 +1065,11 @@ function App() {
             <option value="ex2" style={{ background: '#1e1b4b', color: '#60a5fa' }}>Examiner 2</option>
             <option value="viewer" style={{ background: '#1e1b4b', color: '#c084fc' }}>Chairman / Viewer</option>
           </select>
+          {peerStatus !== 'disconnected' && (
+            <span style={{ fontSize: '0.75rem', color: '#fbbf24' }} title="Role locked during live sync session. Exit room to change role.">
+              🔒 Locked
+            </span>
+          )}
         </div>
       </header>
 
