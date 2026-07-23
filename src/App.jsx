@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.9.1 (Cloud Sync Lock Fix)";
+const APP_VERSION = "v2.0.0 (Triple Multi-Cloud Sync Engine)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -243,7 +243,7 @@ function App() {
   const activeRoomCodeRef = useRef('');
   const lastHttpsTsRef = useRef(0);
   const lastPasteKeyRef = useRef('');
-  const cloudEventSourceRef = useRef(null);
+  const cloudPollingIntervalRef = useRef(null);
   const hasSentCloudPingRef = useRef(false);
   const hasReceivedCloudStateRef = useRef(false);
 
@@ -274,9 +274,9 @@ function App() {
 
   const disconnectPeer = () => {
     addP2pLog('Disconnecting Sync Session...');
-    if (cloudEventSourceRef.current) {
-      cloudEventSourceRef.current.close();
-      cloudEventSourceRef.current = null;
+    if (cloudPollingIntervalRef.current) {
+      clearInterval(cloudPollingIntervalRef.current);
+      cloudPollingIntervalRef.current = null;
     }
     if (guestConnectionRef.current) {
       guestConnectionRef.current.close();
@@ -300,7 +300,7 @@ function App() {
     hasReceivedCloudStateRef.current = false;
   };
 
-  // HTTPS Hybrid Cloud Relay API (ntfy.sh SSE + pastes.dev unlimited payload size)
+  // Triple Multi-Cloud Relay API (ntfy.sh + dweet.io + keyvalue.immanuel.co)
   const pushToHttpsCloud = async (pd, ps, cd, cs, codeOverride, incomingTs) => {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
@@ -321,7 +321,6 @@ function App() {
     let pointerKey = b64Payload;
 
     // 0. Cloud Storage Offloading for large payloads (pastes.dev or bytebin fallback)
-    // IIS limits URLs to ~4000 chars. If payload > 1000 chars, offload to unlimited pastebins
     if (b64Payload.length > 1000) {
       try {
         const pRes = await fetch('https://api.pastes.dev/post', { method: 'POST', body: payloadStr });
@@ -350,26 +349,42 @@ function App() {
       }
     }
 
-    // 1. Publish to ntfy.sh stream
+    const ntfyBody = JSON.stringify({ ptr: pointerKey, ts: ts });
+
+    // Provider 1: ntfy.sh
     try {
-      const ntfyPayload = JSON.stringify({ ptr: pointerKey });
-      const res2 = await fetch(`https://ntfy.sh/viva_room_${targetCode}`, {
+      const res1 = await fetch(`https://ntfy.sh/viva_room_${targetCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: ntfyPayload
+        body: ntfyBody
       });
-      if (res2.ok) {
-        published = true;
-        lastHttpsTsRef.current = payload.timestamp;
-        lastPasteKeyRef.current = pointerKey;
-        addP2pLog(`HTTPS Cloud: Published state to stream for Room ${targetCode}`);
-      }
-    } catch (_err2) {
-      // ntfy blocked
-    }
+      if (res1.ok) published = true;
+    } catch (_e1) {}
 
-    if (!published) {
-      addP2pLog(`HTTPS Cloud Push Warning: Cloud relays unreachable.`);
+    // Provider 2: dweet.io
+    try {
+      const res2 = await fetch(`https://dweet.io/dweet/for/viva_room_${targetCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: ntfyBody
+      });
+      if (res2.ok) published = true;
+    } catch (_e2) {}
+
+    // Provider 3: keyvalue.immanuel.co
+    try {
+      const res3 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/vivaapp123/viva_room_${targetCode}/${pointerKey}`, {
+        method: 'POST'
+      });
+      if (res3.ok) published = true;
+    } catch (_e3) {}
+
+    if (published) {
+      lastHttpsTsRef.current = payload.timestamp;
+      lastPasteKeyRef.current = pointerKey;
+      addP2pLog(`HTTPS Cloud: Published state update to Multi-Cloud Relay for Room ${targetCode}`);
+    } else {
+      addP2pLog(`HTTPS Cloud Push Warning: All cloud relays unreachable.`);
     }
   };
 
@@ -377,66 +392,84 @@ function App() {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
 
-    // Don't restart SSE stream if already active for this room
-    if (cloudEventSourceRef.current && activeRoomCodeRef.current === targetCode) {
-      if (!isHostRef.current && hasReceivedCloudStateRef.current) {
-        setPeerStatus('connected');
-        setSyncMode(prev => (prev === 'p2p' ? 'p2p' : 'https'));
-      }
-      return;
-    }
+    if (cloudPollingIntervalRef.current) return;
 
-    if (cloudEventSourceRef.current) {
-      cloudEventSourceRef.current.close();
-      cloudEventSourceRef.current = null;
-    }
-    
-    addP2pLog(`HTTPS Cloud: Activating Zero-Latency SSE Cloud Relay for Room ${targetCode}...`);
+    addP2pLog(`HTTPS Cloud: Activating Triple Multi-Cloud Relay Poll (2s) for Room ${targetCode}...`);
 
-    const es = new EventSource(`https://ntfy.sh/viva_room_${targetCode}/sse?since=all`);
-    cloudEventSourceRef.current = es;
-
-    es.onmessage = async (e) => {
+    const pollCloud = async () => {
       let data = null;
       let fetchedPointerKey = null;
 
+      // 1. Try ntfy.sh
       try {
-        const msg = JSON.parse(e.data);
-        if (msg.event === 'message' && msg.message) {
-          const ntfyData = JSON.parse(msg.message);
-          
-          if (ntfyData.ptr) {
-            const pKey = ntfyData.ptr;
-            fetchedPointerKey = pKey;
-            
-            // Only parse if pointer has changed
-            if (pKey && pKey !== lastPasteKeyRef.current) {
-              lastPasteKeyRef.current = pKey;
-              
-              if (pKey.startsWith('pastes_')) {
-                const pRes = await fetch(`https://api.pastes.dev/${pKey.split('_')[1]}`);
-                if (pRes.ok) data = await pRes.json();
-              } else if (pKey.startsWith('bytebin_')) {
-                const pRes = await fetch(`https://bytebin.lucko.me/${pKey.split('_')[1]}`);
-                if (pRes.ok) data = await pRes.json();
-              } else {
-                data = JSON.parse(fromBase64Url(pKey));
+        const res1 = await fetch(`https://ntfy.sh/viva_room_${targetCode}/json?poll=1`);
+        if (res1.ok) {
+          const text = await res1.text();
+          const lines = text.trim().split('\n');
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (!lines[i].trim()) continue;
+            try {
+              const msg = JSON.parse(lines[i]);
+              if (msg.event === 'message' && msg.message) {
+                const ntfyData = JSON.parse(msg.message);
+                if (ntfyData.ptr) {
+                  fetchedPointerKey = ntfyData.ptr;
+                  break;
+                }
               }
-            }
-          } else {
-            // Legacy payload format support
-            data = ntfyData;
+            } catch (_e) {}
           }
         }
-      } catch (err) {
-        // ignore parse errors from old/malformed messages
+      } catch (_err1) {}
+
+      // 2. Try dweet.io if ntfy failed
+      if (!fetchedPointerKey) {
+        try {
+          const res2 = await fetch(`https://dweet.io/get/latest/dweet/for/viva_room_${targetCode}`);
+          if (res2.ok) {
+            const json2 = await res2.json();
+            if (json2 && json2.with && json2.with.length > 0 && json2.with[0].content) {
+              if (json2.with[0].content.ptr) {
+                fetchedPointerKey = json2.with[0].content.ptr;
+              }
+            }
+          }
+        } catch (_err2) {}
+      }
+
+      // 3. Try keyvalue.immanuel.co if both failed
+      if (!fetchedPointerKey) {
+        try {
+          const res3 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/GetValue/vivaapp123/viva_room_${targetCode}`);
+          if (res3.ok) {
+            const rawVal = await res3.text();
+            if (rawVal && rawVal !== 'null' && rawVal !== '""') {
+              fetchedPointerKey = rawVal.replace(/^"|"$/g, '');
+            }
+          }
+        } catch (_err3) {}
+      }
+
+      // Process fetched pointer key
+      if (fetchedPointerKey && fetchedPointerKey !== lastPasteKeyRef.current) {
+        lastPasteKeyRef.current = fetchedPointerKey;
+        try {
+          if (fetchedPointerKey.startsWith('pastes_')) {
+            const pRes = await fetch(`https://api.pastes.dev/${fetchedPointerKey.split('_')[1]}`);
+            if (pRes.ok) data = await pRes.json();
+          } else if (fetchedPointerKey.startsWith('bytebin_')) {
+            const pRes = await fetch(`https://bytebin.lucko.me/${fetchedPointerKey.split('_')[1]}`);
+            if (pRes.ok) data = await pRes.json();
+          } else {
+            data = JSON.parse(fromBase64Url(fetchedPointerKey));
+          }
+        } catch (_parseErr) {}
       }
 
       if (data && data.timestamp) {
         hasReceivedCloudStateRef.current = true;
         if (!isHostRef.current && !hasSentCloudPingRef.current) {
           hasSentCloudPingRef.current = true;
-          // Ping the cloud so the Host knows we arrived!
           setTimeout(() => {
             pushToHttpsCloud(data.projectDetails, data.projectStudents, data.compDetails, data.compStudents, targetCode, Date.now());
           }, 100);
@@ -444,7 +477,7 @@ function App() {
 
         if (data.timestamp > lastHttpsTsRef.current) {
           lastHttpsTsRef.current = data.timestamp;
-          
+
           isInternalHistoryChangeRef.current = true;
           try {
             if (data.projectDetails) setProjectDetails(data.projectDetails);
@@ -455,30 +488,26 @@ function App() {
             setStatusMsg(`Synced update received via Cloud Relay at ${new Date().toLocaleTimeString()}`);
             addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
 
-            // CRITICAL SYNC FIX: If HOST receives an update via Cloud, relay it to P2P guests!
             if (isHostRef.current) {
               hostConnectionsRef.current.forEach(conn => {
                 if (conn.open) conn.send(data);
               });
             }
-            
+
             setPeerStatus('connected');
             setSyncMode(prev => (prev === 'p2p' ? 'hybrid' : 'https'));
           } finally {
             setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
           }
         } else if (!isHostRef.current) {
-          // If we are a guest and we fetched the cloud state (even if no edits happened yet),
-          // we are successfully connected to the cloud room.
           setPeerStatus(prev => (prev === 'disconnected' || prev === 'connecting' ? 'connected' : prev));
           setSyncMode(prev => (prev === 'p2p' ? 'p2p' : 'https'));
         }
       }
     };
 
-    es.onerror = () => {
-      // Ignore random SSE reconnect errors to avoid log spam
-    };
+    pollCloud();
+    cloudPollingIntervalRef.current = setInterval(pollCloud, 2000);
   };
 
   const attachWebRtcListeners = (conn, label) => {
