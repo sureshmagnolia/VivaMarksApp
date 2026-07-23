@@ -3,10 +3,11 @@ import Peer from 'peerjs';
 import ProjectVivaApp from './ProjectVivaApp';
 import ComprehensiveVivaApp from './ComprehensiveVivaApp';
 import SyncTab from './components/SyncTab';
+import { saveToIndexedDB, getFromIndexedDB } from './utils/indexedDB';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v2.0.1 (Zero-Preflight Fast Cloud Sync)";
+const APP_VERSION = "v2.0.1 (Zero-Preflight Fast Cloud Sync & IndexedDB Persistence)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -66,7 +67,7 @@ function App() {
   };
 
   // -------------------------------------------------------------
-  // MASTER APP STATES & LOCALSTORAGE SYNC
+  // MASTER APP STATES & LOCALSTORAGE + INDEXEDDB SYNC
   // -------------------------------------------------------------
   const [projectDetails, setProjectDetails] = useState(() => {
     const saved = localStorage.getItem('viva_marks_details');
@@ -88,15 +89,46 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Auto-save master states to localStorage
+  // On initial mount, fallback to IndexedDB if localStorage was cleared
+  useEffect(() => {
+    const initFromIndexedDB = async () => {
+      try {
+        if (!localStorage.getItem('viva_marks_details')) {
+          const idbPd = await getFromIndexedDB('viva_marks_details');
+          if (idbPd) setProjectDetails(idbPd);
+        }
+        if (!localStorage.getItem('viva_marks_students')) {
+          const idbPs = await getFromIndexedDB('viva_marks_students');
+          if (idbPs) setProjectStudents(idbPs);
+        }
+        if (!localStorage.getItem('comp_viva_details')) {
+          const idbCd = await getFromIndexedDB('comp_viva_details');
+          if (idbCd) setCompDetails(idbCd);
+        }
+        if (!localStorage.getItem('comp_viva_students')) {
+          const idbCs = await getFromIndexedDB('comp_viva_students');
+          if (idbCs) setCompStudents(idbCs);
+        }
+      } catch (err) {
+        console.warn('IndexedDB hydration fallback warning:', err);
+      }
+    };
+    initFromIndexedDB();
+  }, []);
+
+  // Auto-save master states to localStorage and IndexedDB
   useEffect(() => {
     localStorage.setItem('viva_marks_details', JSON.stringify(projectDetails));
     localStorage.setItem('viva_marks_students', JSON.stringify(projectStudents));
+    saveToIndexedDB('viva_marks_details', projectDetails);
+    saveToIndexedDB('viva_marks_students', projectStudents);
   }, [projectDetails, projectStudents]);
 
   useEffect(() => {
     localStorage.setItem('comp_viva_details', JSON.stringify(compDetails));
     localStorage.setItem('comp_viva_students', JSON.stringify(compStudents));
+    saveToIndexedDB('comp_viva_details', compDetails);
+    saveToIndexedDB('comp_viva_students', compStudents);
   }, [compDetails, compStudents]);
 
   // -------------------------------------------------------------
