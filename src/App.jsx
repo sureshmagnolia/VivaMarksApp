@@ -311,6 +311,11 @@ function App() {
     if (cloudPollingIntervalRef.current) clearInterval(cloudPollingIntervalRef.current);
     addP2pLog(`HTTPS Cloud: Activating HTTPS REST Relay listener for Room ${targetCode}...`);
 
+    // Set connected status immediately for Cloud Relay
+    setPeerStatus('connected');
+    setSyncMode('https');
+    setStatusMsg(`Connected via HTTPS Cloud Relay (Room ${targetCode})`);
+
     cloudPollingIntervalRef.current = setInterval(async () => {
       try {
         const url = `https://ntfy.sh/viva_room_${targetCode}/json?poll=1`;
@@ -333,9 +338,7 @@ function App() {
                     if (data.compDetails) setCompDetails(data.compDetails);
                     if (data.compStudents) setCompStudents(data.compStudents);
 
-                    setPeerStatus('connected');
-                    setSyncMode('https');
-                    setStatusMsg(`Connected via HTTPS Cloud Relay (Room ${targetCode})`);
+                    setStatusMsg(`Synced update received via HTTPS Cloud at ${new Date().toLocaleTimeString()}`);
                     addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
                   } finally {
                     setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
