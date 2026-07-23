@@ -329,21 +329,37 @@ function App() {
   const guestConnectionRef = useRef(null);
   const hasPromptedRoleConflictRef = useRef(false);
 
-  const checkAndPromptRoleConflict = (incomingRole, senderName = 'The Host') => {
-    if (!isHostRef.current && !hasPromptedRoleConflictRef.current && incomingRole && deviceRole === incomingRole) {
+  const checkAndPromptRoleConflict = (incomingRole, senderName = 'The Host', activePeersMap = {}) => {
+    if (isHostRef.current || hasPromptedRoleConflictRef.current) return;
+
+    // Collect all taken roles in the room
+    const takenRoles = new Set();
+    if (incomingRole) takenRoles.add(incomingRole);
+    if (activePeersMap && typeof activePeersMap === 'object') {
+      Object.values(activePeersMap).forEach(p => {
+        if (p && p.role) takenRoles.add(p.role);
+      });
+    }
+
+    if (takenRoles.has(deviceRole)) {
       hasPromptedRoleConflictRef.current = true;
-      const otherRole = incomingRole === 'ex1' ? 'ex2' : 'ex1';
-      const currentRoleLabel = incomingRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
-      const otherRoleLabel = otherRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
+
+      // Determine alternative role: ex1 -> ex2, ex2 -> ex1
+      const suggestedRole = deviceRole === 'ex1' ? 'ex2' : 'ex1';
+      const currentRoleLabel = deviceRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
+      const suggestedRoleLabel = suggestedRole === 'ex1' ? 'Examiner 1' : 'Examiner 2';
 
       setTimeout(() => {
         const accept = window.confirm(
-          `⚠️ Role Conflict Detected!\n\n${senderName} is already assigned as "${currentRoleLabel}".\n\nWould you like to set your device's role to "${otherRoleLabel}" instead?`
+          `🤝 Joined Room Successfully!\n\n` +
+          `Notice: ${senderName || 'Another device'} in this room is already set as "${currentRoleLabel}".\n\n` +
+          `Would you like to set your device's role to "${suggestedRoleLabel}" to avoid mark entry conflicts?`
         );
         if (accept) {
-          setDeviceRole(otherRole);
+          setDeviceRole(suggestedRole);
+          addP2pLog(`Guest: Device role set to ${suggestedRoleLabel} upon joining room.`);
         }
-      }, 300);
+      }, 100);
     }
   };
 
@@ -854,7 +870,7 @@ function App() {
           if (data.compDetails) setCompDetails(data.compDetails);
           if (data.compStudents) setCompStudents(data.compStudents);
 
-          checkAndPromptRoleConflict(data.senderRole, data.senderName);
+          checkAndPromptRoleConflict(data.senderRole, data.senderName, connectedPeers);
 
           setPeerStatus('connected');
           setStatusMsg(`Synced update received at ${new Date().toLocaleTimeString()}`);
