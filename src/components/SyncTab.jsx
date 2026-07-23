@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Wifi, FileText, CheckCircle2, AlertCircle, RefreshCw, Copy, Check, Smartphone, HelpCircle } from 'lucide-react';
+import { Wifi, FileText, CheckCircle2, AlertCircle, RefreshCw, Copy, Check, Smartphone, HelpCircle, Terminal, Trash2 } from 'lucide-react';
 import { mergeStudentData } from '../utils/mergeUtils';
 
 function SyncTab({ 
@@ -9,12 +9,15 @@ function SyncTab({
   initHostPeer, 
   joinPeerRoom, 
   disconnectPeer,
+  p2pLogs = [],
+  clearP2pLogs,
   projectDetails, setProjectDetails, projectStudents, setProjectStudents,
   compDetails, setCompDetails, compStudents, setCompStudents
 }) {
   const [activeSubTab, setActiveSubTab] = useState('p2p'); // 'p2p' | 'json'
   const [joinInput, setJoinInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLogs, setCopiedLogs] = useState(false);
   const [showNetworkGuide, setShowNetworkGuide] = useState(false);
 
   // JSON Merge State
@@ -26,6 +29,13 @@ function SyncTab({
     navigator.clipboard.writeText(roomCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const copyDebugLogs = () => {
+    const logText = p2pLogs.join('\n');
+    navigator.clipboard.writeText(logText);
+    setCopiedLogs(true);
+    setTimeout(() => setCopiedLogs(false), 2000);
   };
 
   // Smart JSON File Import
@@ -207,6 +217,47 @@ function SyncTab({
               </div>
             </div>
           )}
+
+          {/* DIAGNOSTIC LOG CONSOLE */}
+          <div style={{ marginTop: '1rem', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'bold' }}>
+                <Terminal size={16} /> Real-time P2P Diagnostic Logs ({p2pLogs.length})
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  onClick={copyDebugLogs} 
+                  disabled={p2pLogs.length === 0}
+                  style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {copiedLogs ? <Check size={12} /> : <Copy size={12} />}
+                  {copiedLogs ? 'Copied!' : 'Copy Console Logs'}
+                </button>
+                {clearP2pLogs && (
+                  <button 
+                    onClick={clearP2pLogs} 
+                    disabled={p2pLogs.length === 0}
+                    style={{ padding: '4px 8px', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: '10px', maxHeight: '180px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.78rem', color: '#a5f3fc', lineHeight: '1.5' }}>
+              {p2pLogs.length === 0 ? (
+                <span style={{ color: '#64748b' }}>No connection logs captured yet. Click "Create P2P Room" or "Connect to Room" to begin tracing.</span>
+              ) : (
+                p2pLogs.map((log, i) => (
+                  <div key={i} style={{ borderBottom: '1px dashed rgba(255,255,255,0.05)', padding: '2px 0' }}>
+                    {log}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
         </div>
       )}
 
