@@ -305,6 +305,13 @@ function App() {
   const [syncMode, setSyncMode] = useState('p2p'); // 'p2p' | 'https'
   const [connectionLostReason, setConnectionLostReason] = useState(null);
 
+  // Automatically clear offline connection lost reason when peer status becomes connected
+  useEffect(() => {
+    if (peerStatus === 'connected') {
+      setConnectionLostReason(null);
+    }
+  }, [peerStatus]);
+
   const activeRoomCodeRef = useRef('');
   const lastHttpsTsRef = useRef(0);
   const lastPasteKeyRef = useRef('');
@@ -1137,7 +1144,7 @@ function App() {
       </nav>
 
       {/* Non-intrusive subtle alert banner when sync connection is dropped */}
-      {connectionLostReason && (
+      {peerStatus === 'disconnected' && connectionLostReason && (
         <div style={{
           background: 'linear-gradient(90deg, #78350f, #92400e)',
           borderBottom: '1px solid #f59e0b',
