@@ -226,32 +226,47 @@ function App() {
     };
 
     setHistory(prevHistory => {
-      const currentSlice = prevHistory.slice(0, historyIndex + 1);
+      if (prevHistory.length === 0) {
+        setHistoryIndex(0);
+        return [currentSnapshot];
+      }
+
+      const validIndex = historyIndex >= 0 ? historyIndex : prevHistory.length - 1;
+      const currentSlice = prevHistory.slice(0, validIndex + 1);
       const lastSnap = currentSlice[currentSlice.length - 1];
+
+      // Prevent recording duplicate snapshots if state hasn't changed
       if (lastSnap && JSON.stringify(lastSnap) === JSON.stringify(currentSnapshot)) {
         return prevHistory;
       }
+
       const updated = [...currentSlice, currentSnapshot];
-      if (updated.length > 30) updated.shift();
+      if (updated.length > 30) {
+        updated.shift();
+        setHistoryIndex(updated.length - 1);
+      } else {
+        setHistoryIndex(currentSlice.length);
+      }
       return updated;
     });
+  }, [projectDetails, projectStudents, compDetails, compStudents]);
 
-    setHistoryIndex(prev => Math.min(prev + 1, 29));
-  }, [projectDetails, projectStudents, compDetails, compStudents, historyIndex]);
-
-  const canUndo = historyIndex > 0;
-  const canRedo = historyIndex < history.length - 1;
+  const canUndo = historyIndex > 0 && historyIndex < history.length;
+  const canRedo = historyIndex >= 0 && historyIndex < history.length - 1;
 
   const handleUndo = () => {
     if (canUndo) {
-      isInternalHistoryChangeRef.current = true;
-      const targetSnapshot = history[historyIndex - 1];
-      setHistoryIndex(prev => prev - 1);
+      const targetIndex = historyIndex - 1;
+      const targetSnapshot = history[targetIndex];
+      if (!targetSnapshot) return;
 
-      setProjectDetails(targetSnapshot.pd);
-      setProjectStudents(targetSnapshot.ps);
-      setCompDetails(targetSnapshot.cd);
-      setCompStudents(targetSnapshot.cs);
+      isInternalHistoryChangeRef.current = true;
+      setHistoryIndex(targetIndex);
+
+      if (targetSnapshot.pd) setProjectDetails(targetSnapshot.pd);
+      if (targetSnapshot.ps) setProjectStudents(targetSnapshot.ps);
+      if (targetSnapshot.cd) setCompDetails(targetSnapshot.cd);
+      if (targetSnapshot.cs) setCompStudents(targetSnapshot.cs);
 
       broadcastGlobalState(targetSnapshot.pd, targetSnapshot.ps, targetSnapshot.cd, targetSnapshot.cs);
 
@@ -261,14 +276,17 @@ function App() {
 
   const handleRedo = () => {
     if (canRedo) {
-      isInternalHistoryChangeRef.current = true;
-      const targetSnapshot = history[historyIndex + 1];
-      setHistoryIndex(prev => prev + 1);
+      const targetIndex = historyIndex + 1;
+      const targetSnapshot = history[targetIndex];
+      if (!targetSnapshot) return;
 
-      setProjectDetails(targetSnapshot.pd);
-      setProjectStudents(targetSnapshot.ps);
-      setCompDetails(targetSnapshot.cd);
-      setCompStudents(targetSnapshot.cs);
+      isInternalHistoryChangeRef.current = true;
+      setHistoryIndex(targetIndex);
+
+      if (targetSnapshot.pd) setProjectDetails(targetSnapshot.pd);
+      if (targetSnapshot.ps) setProjectStudents(targetSnapshot.ps);
+      if (targetSnapshot.cd) setCompDetails(targetSnapshot.cd);
+      if (targetSnapshot.cs) setCompStudents(targetSnapshot.cs);
 
       broadcastGlobalState(targetSnapshot.pd, targetSnapshot.ps, targetSnapshot.cd, targetSnapshot.cs);
 
