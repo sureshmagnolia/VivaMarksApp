@@ -26,7 +26,7 @@ const CompStudentsTab = ({ students, setStudents, handleChange }) => {
 
   const handleCopyDown = (index) => {
     const currentStudent = students[index];
-    const currentReg = currentStudent.registerNumber || '';
+    const currentReg = (currentStudent.registerNumber || '').toUpperCase();
     
     // Extract numeric part from the end
     const match = currentReg.match(/^(.*?)(\d+)$/);
@@ -37,7 +37,7 @@ const CompStudentsTab = ({ students, setStudents, handleChange }) => {
       const numStr = match[2];
       const nextNum = parseInt(numStr, 10) + 1;
       const paddedNum = nextNum.toString().padStart(numStr.length, '0');
-      nextReg = `${prefix}${paddedNum}`;
+      nextReg = `${prefix}${paddedNum}`.toUpperCase();
     }
 
     const newStudent = {
@@ -112,9 +112,9 @@ const CompStudentsTab = ({ students, setStudents, handleChange }) => {
                   type="text"
                   className="input-field"
                   placeholder="e.g. REG123456"
-                  value={student.registerNumber}
-                  onChange={(e) => handleChange(student.id, 'registerNumber', e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff' }}
+                  value={student.registerNumber || ''}
+                  onChange={(e) => handleChange(student.id, 'registerNumber', e.target.value.toUpperCase())}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff', textTransform: 'uppercase' }}
                 />
               </div>
 
@@ -124,7 +124,7 @@ const CompStudentsTab = ({ students, setStudents, handleChange }) => {
                   type="text"
                   className="input-field"
                   placeholder="Enter full name"
-                  value={student.name}
+                  value={student.name || ''}
                   onChange={(e) => handleChange(student.id, 'name', e.target.value)}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff' }}
                 />
