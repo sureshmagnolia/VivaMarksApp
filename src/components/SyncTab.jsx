@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Wifi, FileText, CheckCircle2, AlertCircle, RefreshCw, Copy, Check } from 'lucide-react';
+import { Wifi, FileText, CheckCircle2, AlertCircle, RefreshCw, Copy, Check, Smartphone, HelpCircle } from 'lucide-react';
 import { mergeStudentData } from '../utils/mergeUtils';
 
 function SyncTab({ 
@@ -15,6 +15,7 @@ function SyncTab({
   const [activeSubTab, setActiveSubTab] = useState('p2p'); // 'p2p' | 'json'
   const [joinInput, setJoinInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [showNetworkGuide, setShowNetworkGuide] = useState(false);
 
   // JSON Merge State
   const fileInputRef = useRef(null);
@@ -100,9 +101,36 @@ function SyncTab({
       {/* 1. WEBRTC P2P TAB */}
       {activeSubTab === 'p2p' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '1rem', borderRadius: '10px', fontSize: '0.9rem', color: '#cbd5e1' }}>
-            💡 <b>How it works:</b> Create or Join a Room below using a 6-character code. Once connected, <b>navigate to Project Viva or Comprehensive Viva tabs</b> to enter marks. All entries sync automatically in the background!
+          <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '1rem', borderRadius: '10px', fontSize: '0.9rem', color: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              💡 <b>How it works:</b> Create or Join a Room below using a 6-character code. Once connected, <b>navigate to Project Viva or Comprehensive Viva tabs</b> to enter marks. All entries sync automatically!
+            </div>
+            <button 
+              onClick={() => setShowNetworkGuide(!showNetworkGuide)} 
+              style={{ background: 'rgba(234, 179, 8, 0.2)', border: '1px solid #eab308', color: '#fde047', padding: '4px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}
+            >
+              <HelpCircle size={14} /> Wi-Fi Troubleshooting Tip
+            </button>
           </div>
+
+          {showNetworkGuide && (
+            <div style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.4)', padding: '1.25rem', borderRadius: '12px', color: '#fef08a', fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '0.95rem', color: '#fde047' }}>
+                <Smartphone size={20} /> College Wi-Fi / Connection Help:
+              </div>
+              <p style={{ margin: 0 }}>
+                If devices stay stuck on <b>"Connecting to Room..."</b>, your College/Campus Wi-Fi network has <i>AP Client Isolation</i> enabled, which blocks direct computer-to-computer connections.
+              </p>
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', marginTop: '4px' }}>
+                <b>Recommended Quick Fix:</b>
+                <ol style={{ margin: '6px 0 0 1.2rem', padding: 0 }}>
+                  <li>Turn on <b>Portable Hotspot</b> on your mobile phone.</li>
+                  <li>Connect both laptops (Host and Partner) to your Mobile Hotspot.</li>
+                  <li>Re-enter the 6-character Room Code! Connections will establish instantly.</li>
+                </ol>
+              </div>
+            </div>
+          )}
 
           {peerStatus === 'disconnected' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -151,6 +179,12 @@ function SyncTab({
                 <span>{statusMsg}</span>
               </div>
 
+              {peerStatus === 'connecting' && (
+                <div style={{ marginTop: '1rem', fontSize: '0.82rem', color: '#fef08a', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '6px', display: 'inline-block' }}>
+                  💡 <i>Taking longer than 10s? If using College Wi-Fi, try connecting both laptops to a Mobile Hotspot.</i>
+                </div>
+              )}
+
               {peerStatus === 'connected' && (
                 <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '1rem' }}>
                   ✅ <b>Connected!</b> You can now navigate to <b>Project Viva</b> or <b>Comprehensive Viva</b> tabs above to enter marks. Background sync is running!
@@ -167,8 +201,9 @@ function SyncTab({
             <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', padding: '1.25rem', borderRadius: '10px', color: '#fca5a5' }}>
               <AlertCircle size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} />
               {statusMsg}
-              <div style={{ marginTop: '0.75rem' }}>
+              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '10px', justifyContent: 'center' }}>
                 <button className="btn btn-secondary" onClick={disconnectPeer} style={{ fontSize: '0.85rem', padding: '6px 14px' }}>Reset Connection</button>
+                <button className="btn btn-secondary" onClick={() => setShowNetworkGuide(true)} style={{ fontSize: '0.85rem', padding: '6px 14px', background: 'rgba(234, 179, 8, 0.2)', color: '#fde047' }}>View Hotspot Guide</button>
               </div>
             </div>
           )}
