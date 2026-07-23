@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.8.0 (Connection State Fixes)";
+const APP_VERSION = "v1.8.1 (Cloud Ping Fix)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
