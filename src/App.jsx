@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.8.2 (Cloud Ping Fix 2)";
+const APP_VERSION = "v1.9.0 (Ultimate SSE Cloud Sync)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -243,7 +243,7 @@ function App() {
   const activeRoomCodeRef = useRef('');
   const lastHttpsTsRef = useRef(0);
   const lastPasteKeyRef = useRef('');
-  const cloudPollingIntervalRef = useRef(null);
+  const cloudEventSourceRef = useRef(null);
   const hasSentCloudPingRef = useRef(false);
 
   const addP2pLog = (msg) => {
@@ -273,9 +273,9 @@ function App() {
 
   const disconnectPeer = () => {
     addP2pLog('Disconnecting Sync Session...');
-    if (cloudPollingIntervalRef.current) {
-      clearInterval(cloudPollingIntervalRef.current);
-      cloudPollingIntervalRef.current = null;
+    if (cloudEventSourceRef.current) {
+      cloudEventSourceRef.current.close();
+      cloudEventSourceRef.current = null;
     }
     if (guestConnectionRef.current) {
       guestConnectionRef.current.close();
@@ -298,7 +298,7 @@ function App() {
     lastPasteKeyRef.current = '';
   };
 
-  // HTTPS Hybrid Cloud Relay API (keyvalue.immanuel.co + pastes.dev unlimited payload size + ntfy.sh failover)
+  // HTTPS Hybrid Cloud Relay API (ntfy.sh SSE + pastes.dev unlimited payload size)
   const pushToHttpsCloud = async (pd, ps, cd, cs, codeOverride, incomingTs) => {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
@@ -348,38 +348,22 @@ function App() {
       }
     }
 
-    // 1. Primary Cloud Relay: keyvalue.immanuel.co (Pointer or Base64)
+    // 1. Publish to ntfy.sh stream
     try {
-      const res1 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/vivaapp123/viva_room_${targetCode}/${pointerKey}`, {
-        method: 'POST'
+      const ntfyPayload = JSON.stringify({ ptr: pointerKey });
+      const res2 = await fetch(`https://ntfy.sh/viva_room_${targetCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: ntfyPayload
       });
-      if (res1.ok) {
+      if (res2.ok) {
         published = true;
         lastHttpsTsRef.current = payload.timestamp;
         lastPasteKeyRef.current = pointerKey;
-        addP2pLog(`HTTPS Cloud (keyvalue): Published state update for Room ${targetCode}`);
+        addP2pLog(`HTTPS Cloud: Published state to stream for Room ${targetCode}`);
       }
-    } catch (_err1) {
-      // primary keyvalue failed
-    }
-
-    // 2. Secondary Cloud Relay: ntfy.sh
-    if (!published) {
-      try {
-        const ntfyPayload = JSON.stringify({ ptr: pointerKey });
-        const res2 = await fetch(`https://ntfy.sh/viva_room_${targetCode}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: ntfyPayload
-        });
-        if (res2.ok) {
-          published = true;
-          lastHttpsTsRef.current = payload.timestamp;
-          addP2pLog(`HTTPS Cloud (ntfy): Published pointer state update for Room ${targetCode}`);
-        }
-      } catch (_err2) {
-        // ntfy blocked
-      }
+    } catch (_err2) {
+      // ntfy blocked
     }
 
     if (!published) {
@@ -391,85 +375,50 @@ function App() {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
 
-    if (cloudPollingIntervalRef.current) clearInterval(cloudPollingIntervalRef.current);
-    addP2pLog(`HTTPS Cloud: Activating Hybrid Cloud Relay listener for Room ${targetCode}...`);
+    if (cloudEventSourceRef.current) {
+      cloudEventSourceRef.current.close();
+      cloudEventSourceRef.current = null;
+    }
+    
+    addP2pLog(`HTTPS Cloud: Activating Zero-Latency SSE Cloud Relay for Room ${targetCode}...`);
 
-    cloudPollingIntervalRef.current = setInterval(async () => {
+    const es = new EventSource(`https://ntfy.sh/viva_room_${targetCode}/sse?since=all`);
+    cloudEventSourceRef.current = es;
+
+    es.onmessage = async (e) => {
       let data = null;
       let fetchedPointerKey = null;
 
-      // 1. Try keyvalue.immanuel.co (Base64 or Pointer)
       try {
-        const res1 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/GetValue/vivaapp123/viva_room_${targetCode}`);
-        if (res1.ok) {
-          const rawVal = await res1.text();
-          if (rawVal && rawVal !== 'null' && rawVal !== '""') {
-            const pointerKey = rawVal.replace(/^"|"$/g, '');
-            fetchedPointerKey = pointerKey;
+        const msg = JSON.parse(e.data);
+        if (msg.event === 'message' && msg.message) {
+          const ntfyData = JSON.parse(msg.message);
+          
+          if (ntfyData.ptr) {
+            const pKey = ntfyData.ptr;
+            fetchedPointerKey = pKey;
             
             // Only parse if pointer has changed
-            if (pointerKey && pointerKey !== lastPasteKeyRef.current) {
-              // Update lastPasteKeyRef immediately so we never infinite-loop on the same pointer if it's stale
-              lastPasteKeyRef.current = pointerKey; 
-
-              if (pointerKey.startsWith('pastes_')) {
-                const pRes = await fetch(`https://api.pastes.dev/${pointerKey.split('_')[1]}`);
+            if (pKey && pKey !== lastPasteKeyRef.current) {
+              lastPasteKeyRef.current = pKey;
+              
+              if (pKey.startsWith('pastes_')) {
+                const pRes = await fetch(`https://api.pastes.dev/${pKey.split('_')[1]}`);
                 if (pRes.ok) data = await pRes.json();
-              } else if (pointerKey.startsWith('bytebin_')) {
-                const pRes = await fetch(`https://bytebin.lucko.me/${pointerKey.split('_')[1]}`);
+              } else if (pKey.startsWith('bytebin_')) {
+                const pRes = await fetch(`https://bytebin.lucko.me/${pKey.split('_')[1]}`);
                 if (pRes.ok) data = await pRes.json();
               } else {
-                // Long key means raw Base64 string directly in keyvalue
-                const decodedStr = fromBase64Url(pointerKey);
-                data = JSON.parse(decodedStr);
+                data = JSON.parse(fromBase64Url(pKey));
               }
             }
+          } else {
+            // Legacy payload format support
+            data = ntfyData;
           }
         }
-      } catch (_err1) {
-        // fallback to ntfy
-      }
-
-      // 2. Fallback to ntfy.sh (try if keyvalue failed entirely OR if no data was retrieved)
-      if (!data) {
-        try {
-          const res2 = await fetch(`https://ntfy.sh/viva_room_${targetCode}/json?poll=1`);
-          if (res2.ok) {
-            const text = await res2.text();
-            const lines = text.trim().split('\n');
-            for (let i = lines.length - 1; i >= 0; i--) {
-              if (!lines[i].trim()) continue;
-              try {
-                const msg = JSON.parse(lines[i]);
-                if (msg.event === 'message' && msg.message) {
-                  const ntfyData = JSON.parse(msg.message);
-                  
-                  if (ntfyData.ptr) {
-                    const pKey = ntfyData.ptr;
-                    fetchedPointerKey = pKey;
-                    if (pKey && pKey !== lastPasteKeyRef.current) {
-                      lastPasteKeyRef.current = pKey;
-                      if (pKey.startsWith('pastes_')) {
-                        const pRes = await fetch(`https://api.pastes.dev/${pKey.split('_')[1]}`);
-                        if (pRes.ok) data = await pRes.json();
-                      } else if (pKey.startsWith('bytebin_')) {
-                        const pRes = await fetch(`https://bytebin.lucko.me/${pKey.split('_')[1]}`);
-                        if (pRes.ok) data = await pRes.json();
-                      } else {
-                        data = JSON.parse(fromBase64Url(pKey));
-                      }
-                    }
-                  } else {
-                    data = ntfyData; // Legacy raw payload support
-                  }
-                  break;
-                }
-              } catch (_e) {}
-            }
-          }
-        } catch (_err2) {
-          // both failed
-        }
+      } catch (err) {
+        // ignore parse errors from old/malformed messages
       }
 
       if (data && data.timestamp) {
@@ -483,7 +432,6 @@ function App() {
 
         if (data.timestamp > lastHttpsTsRef.current) {
           lastHttpsTsRef.current = data.timestamp;
-          // fetchedPointerKey logic removed because we now update it eagerly before parsing
           
           isInternalHistoryChangeRef.current = true;
           try {
@@ -514,7 +462,11 @@ function App() {
           setSyncMode(prev => (prev === 'p2p' ? 'p2p' : 'https'));
         }
       }
-    }, 1200);
+    };
+
+    es.onerror = () => {
+      // Ignore random SSE reconnect errors to avoid log spam
+    };
   };
 
   const attachWebRtcListeners = (conn, label) => {
