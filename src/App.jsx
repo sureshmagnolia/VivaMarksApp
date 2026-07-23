@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.9.0 (Ultimate SSE Cloud Sync)";
+const APP_VERSION = "v1.9.1 (Cloud Sync Lock Fix)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -245,6 +245,7 @@ function App() {
   const lastPasteKeyRef = useRef('');
   const cloudEventSourceRef = useRef(null);
   const hasSentCloudPingRef = useRef(false);
+  const hasReceivedCloudStateRef = useRef(false);
 
   const addP2pLog = (msg) => {
     const time = new Date().toLocaleTimeString();
@@ -296,6 +297,7 @@ function App() {
     activeRoomCodeRef.current = '';
     lastHttpsTsRef.current = 0;
     lastPasteKeyRef.current = '';
+    hasReceivedCloudStateRef.current = false;
   };
 
   // HTTPS Hybrid Cloud Relay API (ntfy.sh SSE + pastes.dev unlimited payload size)
@@ -375,6 +377,15 @@ function App() {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
 
+    // Don't restart SSE stream if already active for this room
+    if (cloudEventSourceRef.current && activeRoomCodeRef.current === targetCode) {
+      if (!isHostRef.current && hasReceivedCloudStateRef.current) {
+        setPeerStatus('connected');
+        setSyncMode(prev => (prev === 'p2p' ? 'p2p' : 'https'));
+      }
+      return;
+    }
+
     if (cloudEventSourceRef.current) {
       cloudEventSourceRef.current.close();
       cloudEventSourceRef.current = null;
@@ -422,6 +433,7 @@ function App() {
       }
 
       if (data && data.timestamp) {
+        hasReceivedCloudStateRef.current = true;
         if (!isHostRef.current && !hasSentCloudPingRef.current) {
           hasSentCloudPingRef.current = true;
           // Ping the cloud so the Host knows we arrived!
