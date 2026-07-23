@@ -61,6 +61,31 @@ function App() {
     return localStorage.getItem('viva_marks_current_app') || 'project';
   });
 
+  // Device Role & Device Name for Multi-Device Conflict Prevention
+  const [deviceRole, setDeviceRoleState] = useState(() => {
+    return localStorage.getItem('viva_marks_device_role') || 'ex1';
+  });
+
+  const setDeviceRole = (role) => {
+    setDeviceRoleState(role);
+    localStorage.setItem('viva_marks_device_role', role);
+  };
+
+  const [deviceName, setDeviceNameState] = useState(() => {
+    const saved = localStorage.getItem('viva_marks_device_name');
+    if (saved) return saved;
+    const gen = 'PC-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    localStorage.setItem('viva_marks_device_name', gen);
+    return gen;
+  });
+
+  const setDeviceName = (name) => {
+    setDeviceNameState(name);
+    localStorage.setItem('viva_marks_device_name', name);
+  };
+
+  const [connectedPeers, setConnectedPeers] = useState({});
+
   const handleTabSwitch = (tab) => {
     setCurrentAppTab(tab);
     localStorage.setItem('viva_marks_current_app', tab);
@@ -741,10 +766,24 @@ function App() {
     });
   };
 
+  const handleIncomingPeerState = (data, peerId = 'remote') => {
+    if (data.senderName) {
+      const key = peerId !== 'remote' ? peerId : data.senderName;
+      setConnectedPeers(prev => ({
+        ...prev,
+        [key]: {
+          name: data.senderName,
+          role: data.senderRole || 'ex1',
+          activeTab: data.senderActiveTab || 'comp',
+          lastSeen: Date.now()
+        }
+      }));
+    }
+  };
+
   const sendStateToConn = (conn, pd, ps, cd, cs) => {
     if (conn && conn.open) {
       const ts = Date.now();
-      // Update our own tracker so we don't echo our own initial sync back
       if (ts > lastHttpsTsRef.current) lastHttpsTsRef.current = ts;
       conn.send({
         type: 'GLOBAL_SYNC_STATE',
@@ -752,6 +791,9 @@ function App() {
         projectStudents: ps,
         compDetails: cd,
         compStudents: cs,
+        senderRole: deviceRole,
+        senderName: deviceName,
+        senderActiveTab: currentAppTab,
         timestamp: ts
       });
     }
@@ -766,6 +808,9 @@ function App() {
       projectStudents: ps,
       compDetails: cd,
       compStudents: cs,
+      senderRole: deviceRole,
+      senderName: deviceName,
+      senderActiveTab: currentAppTab,
       timestamp: Date.now()
     };
     
@@ -793,11 +838,10 @@ function App() {
   };
 
   // Broadcast state changes whenever local states change while connected
-  // Using a ref-check instead of relying solely on the 100ms timeout to prevent race-condition echoes
   useEffect(() => {
     if (isInternalHistoryChangeRef.current) return;
     broadcastGlobalState(projectDetails, projectStudents, compDetails, compStudents);
-  }, [projectDetails, projectStudents, compDetails, compStudents]);
+  }, [projectDetails, projectStudents, compDetails, compStudents, deviceRole, deviceName, currentAppTab]);
 
   const handleResetDataWrapper = (appSource) => {
     if (appSource === 'project') {
@@ -825,6 +869,9 @@ function App() {
         students={projectStudents} setStudents={setProjectStudents}
         canUndo={canUndo} canRedo={canRedo} onUndo={handleUndo} onRedo={handleRedo}
         onResetData={() => handleResetDataWrapper('project')}
+        deviceRole={deviceRole} setDeviceRole={setDeviceRole}
+        deviceName={deviceName} setDeviceName={setDeviceName}
+        connectedPeers={connectedPeers}
       />
     );
   }
@@ -835,18 +882,53 @@ function App() {
         students={compStudents} setStudents={setCompStudents}
         canUndo={canUndo} canRedo={canRedo} onUndo={handleUndo} onRedo={handleRedo}
         onResetData={() => handleResetDataWrapper('comp')}
+        deviceRole={deviceRole} setDeviceRole={setDeviceRole}
+        deviceName={deviceName} setDeviceName={setDeviceName}
+        connectedPeers={connectedPeers}
       />
     );
   }
 
   return (
-    <div className="master-container">
-      <nav className="master-nav">
+    <div className="app-container">
+      <header className="master-header glass-panel" style={{ background: 'linear-gradient(135deg, #1e1b4b, #311b92)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+            <Peer size={28} color="#fff" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+              University Viva Voce Examination System
+            </h1>
+            <p style={{ fontSize: '0.8rem', color: '#a5b4fc', margin: 0 }}>
+              CBCSS Direct Grade & WGP Entry Suite (Integrated Peer-to-Peer & Cloud Sync)
+            </p>
+          </div>
+        </div>
+
+        {peerStatus === 'connected' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(15, 23, 42, 0.6)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>My Role:</span>
+            <span style={{ 
+              fontSize: '0.8rem', 
+              fontWeight: 'bold', 
+              padding: '2px 8px', 
+              borderRadius: '10px',
+              backgroundColor: deviceRole === 'ex1' ? '#15803d' : deviceRole === 'ex2' ? '#1d4ed8' : '#7c3aed',
+              color: '#fff'
+            }}>
+              {deviceRole === 'ex1' ? 'Examiner 1' : deviceRole === 'ex2' ? 'Examiner 2' : 'Chairman / Viewer'}
+            </span>
+          </div>
+        )}
+      </header>
+
+      <nav className="master-tabs">
         <button 
           className={`master-tab ${currentAppTab === 'project' ? 'active' : ''}`}
           onClick={() => handleTabSwitch('project')}
         >
-          1. Project Viva Marks Consolidator
+          1. Project Viva & Dissertation
         </button>
         <button 
           className={`master-tab ${currentAppTab === 'comp' ? 'active' : ''}`}
@@ -890,6 +972,9 @@ function App() {
             students={projectStudents} setStudents={setProjectStudents}
             canUndo={canUndo} canRedo={canRedo} onUndo={handleUndo} onRedo={handleRedo}
             onResetData={() => handleResetDataWrapper('project')}
+            deviceRole={deviceRole} setDeviceRole={setDeviceRole}
+            deviceName={deviceName} setDeviceName={setDeviceName}
+            connectedPeers={connectedPeers}
           />
         )}
         {currentAppTab === 'comp' && (
@@ -898,6 +983,9 @@ function App() {
             students={compStudents} setStudents={setCompStudents}
             canUndo={canUndo} canRedo={canRedo} onUndo={handleUndo} onRedo={handleRedo}
             onResetData={() => handleResetDataWrapper('comp')}
+            deviceRole={deviceRole} setDeviceRole={setDeviceRole}
+            deviceName={deviceName} setDeviceName={setDeviceName}
+            connectedPeers={connectedPeers}
           />
         )}
         {currentAppTab === 'sync' && (
@@ -915,6 +1003,9 @@ function App() {
             projectStudents={projectStudents} setProjectStudents={setProjectStudents}
             compDetails={compDetails} setCompDetails={setCompDetails}
             compStudents={compStudents} setCompStudents={setCompStudents}
+            deviceRole={deviceRole} setDeviceRole={setDeviceRole}
+            deviceName={deviceName} setDeviceName={setDeviceName}
+            connectedPeers={connectedPeers}
           />
         )}
       </div>

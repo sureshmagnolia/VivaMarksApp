@@ -13,7 +13,10 @@ function SyncTab({
   p2pLogs = [],
   clearP2pLogs,
   projectDetails, setProjectDetails, projectStudents, setProjectStudents,
-  compDetails, setCompDetails, compStudents, setCompStudents
+  compDetails, setCompDetails, compStudents, setCompStudents,
+  deviceRole = 'ex1', setDeviceRole = () => {},
+  deviceName = 'My PC', setDeviceName = () => {},
+  connectedPeers = {}
 }) {
   const [activeSubTab, setActiveSubTab] = useState('p2p'); // 'p2p' | 'json'
   const [joinInput, setJoinInput] = useState('');
@@ -128,6 +131,93 @@ function SyncTab({
       {/* 1. WEBRTC P2P TAB */}
       {activeSubTab === 'p2p' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          
+          {/* DEVICE ROLE SELECTION CARD */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '1.25rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>👤 Device Role & Identification</span>
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>PC Label:</span>
+                <input 
+                  type="text"
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '3px 8px', borderRadius: '6px', fontSize: '0.8rem', width: '110px' }}
+                />
+              </div>
+            </div>
+            <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '0 0 1rem 0' }}>
+              Select which role this computer will perform to prevent editing conflicts with other connected devices in the room.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setDeviceRole('ex1')}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: deviceRole === 'ex1' ? '2px solid #22c55e' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: deviceRole === 'ex1' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(0, 0, 0, 0.3)',
+                  color: deviceRole === 'ex1' ? '#4ade80' : '#cbd5e1',
+                  fontWeight: deviceRole === 'ex1' ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>Examiner 1</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Edits Examiner 1 Marks</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeviceRole('ex2')}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: deviceRole === 'ex2' ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: deviceRole === 'ex2' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(0, 0, 0, 0.3)',
+                  color: deviceRole === 'ex2' ? '#60a5fa' : '#cbd5e1',
+                  fontWeight: deviceRole === 'ex2' ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>Examiner 2</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Edits Examiner 2 Marks</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeviceRole('viewer')}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: deviceRole === 'viewer' ? '2px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: deviceRole === 'viewer' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(0, 0, 0, 0.3)',
+                  color: deviceRole === 'viewer' ? '#c084fc' : '#cbd5e1',
+                  fontWeight: deviceRole === 'viewer' ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>Chairman / Viewer</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Read-Only / Monitoring</span>
+              </button>
+            </div>
+          </div>
+
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '1rem', borderRadius: '10px', fontSize: '0.9rem', color: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               💡 <b>How it works:</b> Create or Join a Room below using a 6-character code. Once connected, <b>navigate to Project Viva or Comprehensive Viva tabs</b> to enter marks. All entries sync automatically!
@@ -213,9 +303,29 @@ function SyncTab({
               )}
 
               {peerStatus === 'connected' && (
-                <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '1rem' }}>
-                  ✅ <b>Connected!</b> You can now navigate to <b>Project Viva</b> or <b>Comprehensive Viva</b> tabs above to enter marks. Background sync is running!
-                </p>
+                <>
+                  <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '1rem' }}>
+                    ✅ <b>Connected!</b> You can now navigate to <b>Project Viva</b> or <b>Comprehensive Viva</b> tabs above to enter marks. Background sync is running!
+                  </p>
+
+                  <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '10px', marginTop: '1rem', textAlign: 'left' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#94a3b8', marginBottom: '8px' }}>
+                      🖥️ Active Room Devices Roster:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', padding: '5px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }}></span>
+                        <strong>{deviceName} (This PC)</strong>: {deviceRole === 'ex1' ? 'Examiner 1' : deviceRole === 'ex2' ? 'Examiner 2' : 'Chairman / Viewer'}
+                      </div>
+                      {Object.entries(connectedPeers).map(([key, peer]) => (
+                        <div key={key} style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid #38bdf8', padding: '5px 12px', borderRadius: '6px', fontSize: '0.8rem', color: '#7dd3fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38bdf8' }}></span>
+                          <strong>{peer.name || key}</strong>: {peer.role === 'ex1' ? 'Examiner 1' : peer.role === 'ex2' ? 'Examiner 2' : 'Chairman / Viewer'}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               <button className="btn btn-danger" onClick={disconnectPeer} style={{ marginTop: '1.25rem', padding: '8px 20px' }}>

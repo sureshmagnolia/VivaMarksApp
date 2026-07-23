@@ -19,7 +19,12 @@ function ComprehensiveVivaApp({
   canRedo,
   onUndo,
   onRedo,
-  onResetData
+  onResetData,
+  deviceRole = 'ex1',
+  setDeviceRole,
+  deviceName = 'This PC',
+  setDeviceName,
+  connectedPeers = {}
 }) {
   const queryParams = new URLSearchParams(window.location.search);
   const printMode = queryParams.get('print');
@@ -220,10 +225,28 @@ function ComprehensiveVivaApp({
               <CompStudentsTab students={students} setStudents={setStudents} handleChange={handleChange} />
             )}
             {currentTab === 'examiner1' && (
-              <CompExaminerTab students={students} handleChange={handleChange} examiner="ex1" title="Examiner 1" />
+              <CompExaminerTab 
+                students={students} 
+                handleChange={handleChange} 
+                examiner="ex1" 
+                title="Examiner 1"
+                deviceRole={deviceRole}
+                deviceName={deviceName}
+                connectedPeers={connectedPeers}
+                onSwitchTab={(tab) => setCurrentTab(tab)}
+              />
             )}
             {currentTab === 'examiner2' && (
-              <CompExaminerTab students={students} handleChange={handleChange} examiner="ex2" title="Examiner 2" />
+              <CompExaminerTab 
+                students={students} 
+                handleChange={handleChange} 
+                examiner="ex2" 
+                title="Examiner 2"
+                deviceRole={deviceRole}
+                deviceName={deviceName}
+                connectedPeers={connectedPeers}
+                onSwitchTab={(tab) => setCurrentTab(tab)}
+              />
             )}
             {currentTab === 'marklist' && (
               <CompMarklistTab details={details} students={students} />
