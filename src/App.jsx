@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.3.0 (ntfy.sh HTTPS Relay)";
+const APP_VERSION = "v1.4.0 (Dual-Cloud Failover Engine)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -215,7 +215,7 @@ function App() {
   }, [historyIndex, history, canUndo, canRedo]);
 
   // -------------------------------------------------------------
-  // DUAL-ENGINE SYNC: WEBRTC P2P + NTFY.SH HTTPS CLOUD RELAY FALLBACK
+  // DUAL-ENGINE SYNC: WEBRTC P2P + MULTI-CLOUD RELAY FALLBACK ENGINE
   // -------------------------------------------------------------
   const [roomCode, setRoomCode] = useState('');
   const [peerStatus, setPeerStatus] = useState('disconnected'); // 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -277,12 +277,11 @@ function App() {
     activeRoomCodeRef.current = '';
   };
 
-  // HTTPS Cloud Relay API (ntfy.sh - 100% free, CORS-enabled HTTPS relay)
+  // HTTPS Multi-Cloud Relay API (ntfy.sh + keyvalue.immanuel.co dual failover)
   const pushToHttpsCloud = async (pd, ps, cd, cs, codeOverride) => {
     const targetCode = codeOverride || activeRoomCodeRef.current || roomCode;
     if (!targetCode) return;
 
-    const url = `https://ntfy.sh/viva_room_${targetCode}`;
     const payload = {
       type: 'GLOBAL_SYNC_STATE',
       projectDetails: pd,
@@ -291,16 +290,43 @@ function App() {
       compStudents: cs,
       timestamp: Date.now()
     };
+    const payloadStr = JSON.stringify(payload);
+
+    let published = false;
+
+    // 1. Try Primary Cloud Relay: ntfy.sh
     try {
-      await fetch(url, {
+      const res1 = await fetch(`https://ntfy.sh/viva_room_${targetCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: payloadStr
       });
-      lastHttpsTsRef.current = payload.timestamp;
-      addP2pLog(`HTTPS Cloud: Room data published for Room ${targetCode} over TLS port 443`);
-    } catch (e) {
-      addP2pLog(`HTTPS Cloud Push Error: ${e.message}`);
+      if (res1.ok) {
+        published = true;
+        lastHttpsTsRef.current = payload.timestamp;
+        addP2pLog(`HTTPS Cloud (ntfy): Published state update for Room ${targetCode}`);
+      }
+    } catch (_err1) {
+      // ntfy blocked by campus network
+    }
+
+    // 2. Try Secondary Cloud Relay: keyvalue.immanuel.co
+    try {
+      const encoded = encodeURIComponent(payloadStr);
+      const res2 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/vivaapp123/viva_room_${targetCode}/${encoded}`, {
+        method: 'POST'
+      });
+      if (res2.ok) {
+        published = true;
+        lastHttpsTsRef.current = payload.timestamp;
+        addP2pLog(`HTTPS Cloud (keyvalue): Published state update for Room ${targetCode}`);
+      }
+    } catch (_err2) {
+      // keyvalue blocked or failed
+    }
+
+    if (!published) {
+      addP2pLog(`HTTPS Cloud Push Warning: Cloud relays busy or blocked.`);
     }
   };
 
@@ -309,50 +335,67 @@ function App() {
     if (!targetCode) return;
 
     if (cloudPollingIntervalRef.current) clearInterval(cloudPollingIntervalRef.current);
-    addP2pLog(`HTTPS Cloud: Activating HTTPS REST Relay listener for Room ${targetCode}...`);
+    addP2pLog(`HTTPS Cloud: Activating Multi-Cloud REST Relay listener for Room ${targetCode}...`);
 
-    // Set connected status immediately for Cloud Relay
     setPeerStatus('connected');
     setSyncMode('https');
     setStatusMsg(`Connected via HTTPS Cloud Relay (Room ${targetCode})`);
 
     cloudPollingIntervalRef.current = setInterval(async () => {
+      let data = null;
+
+      // 1. Try ntfy.sh first
       try {
-        const url = `https://ntfy.sh/viva_room_${targetCode}/json?poll=1`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const text = await res.text();
+        const res1 = await fetch(`https://ntfy.sh/viva_room_${targetCode}/json?poll=1`);
+        if (res1.ok) {
+          const text = await res1.text();
           const lines = text.trim().split('\n');
           for (let i = lines.length - 1; i >= 0; i--) {
+            if (!lines[i].trim()) continue;
             try {
-              if (!lines[i].trim()) continue;
               const msg = JSON.parse(lines[i]);
               if (msg.event === 'message' && msg.message) {
-                const data = JSON.parse(msg.message);
-                if (data && data.timestamp && data.timestamp > lastHttpsTsRef.current) {
-                  lastHttpsTsRef.current = data.timestamp;
-                  isInternalHistoryChangeRef.current = true;
-                  try {
-                    if (data.projectDetails) setProjectDetails(data.projectDetails);
-                    if (data.projectStudents) setProjectStudents(data.projectStudents);
-                    if (data.compDetails) setCompDetails(data.compDetails);
-                    if (data.compStudents) setCompStudents(data.compStudents);
-
-                    setStatusMsg(`Synced update received via HTTPS Cloud at ${new Date().toLocaleTimeString()}`);
-                    addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
-                  } finally {
-                    setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
-                  }
-                  break;
-                }
+                data = JSON.parse(msg.message);
+                break;
               }
-            } catch (_err) {
-              // skip unparseable line
-            }
+            } catch (_e) {}
           }
         }
-      } catch (err) {
-        addP2pLog(`HTTPS Cloud Listen Error: ${err.message}`);
+      } catch (_err) {
+        // ntfy blocked by campus firewall -> fallback silently to keyvalue
+      }
+
+      // 2. Fallback to keyvalue.immanuel.co if ntfy failed or returned no data
+      if (!data) {
+        try {
+          const res2 = await fetch(`https://keyvalue.immanuel.co/api/KeyVal/GetValue/vivaapp123/viva_room_${targetCode}`);
+          if (res2.ok) {
+            const rawVal = await res2.text();
+            if (rawVal && rawVal !== 'null') {
+              const cleanStr = rawVal.replace(/^"|"$/g, '');
+              const decoded = decodeURIComponent(cleanStr);
+              data = JSON.parse(decoded);
+            }
+          }
+        } catch (_err2) {
+          // secondary failover failed
+        }
+      }
+
+      if (data && data.timestamp && data.timestamp > lastHttpsTsRef.current) {
+        lastHttpsTsRef.current = data.timestamp;
+        isInternalHistoryChangeRef.current = true;
+        try {
+          if (data.projectDetails) setProjectDetails(data.projectDetails);
+          if (data.projectStudents) setProjectStudents(data.projectStudents);
+          if (data.compDetails) setCompDetails(data.compDetails);
+          if (data.compStudents) setCompStudents(data.compStudents);
+
+          setStatusMsg(`Synced update received via HTTPS Cloud at ${new Date().toLocaleTimeString()}`);
+          addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
+        } finally {
+          setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
+        }
       }
     }, 1200);
   };
