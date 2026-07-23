@@ -6,7 +6,7 @@ import SyncTab from './components/SyncTab';
 import './index.css';
 
 // Build version for cache verification
-const APP_VERSION = "v1.5.0 (Base64 Cloud Engine)";
+const APP_VERSION = "v1.6.0 (Instant Cloud Connection Fix)";
 
 // PeerJS signaling & WebRTC configuration with static IP & domain STUN/TURN relays
 const PEER_OPTIONS = {
@@ -271,7 +271,7 @@ function App() {
 
   const disconnectPeer = () => {
     addP2pLog('Disconnecting Sync Session...');
-    if (cloudPollingIntervalRef) {
+    if (cloudPollingIntervalRef.current) {
       clearInterval(cloudPollingIntervalRef.current);
       cloudPollingIntervalRef.current = null;
     }
@@ -356,8 +356,6 @@ function App() {
     if (cloudPollingIntervalRef.current) clearInterval(cloudPollingIntervalRef.current);
     addP2pLog(`HTTPS Cloud: Activating Base64 Cloud Relay listener for Room ${targetCode}...`);
 
-    setSyncMode('https');
-
     cloudPollingIntervalRef.current = setInterval(async () => {
       let data = null;
 
@@ -399,21 +397,26 @@ function App() {
         }
       }
 
-      if (data && data.timestamp && data.timestamp > lastHttpsTsRef.current) {
-        lastHttpsTsRef.current = data.timestamp;
-        isInternalHistoryChangeRef.current = true;
-        try {
-          if (data.projectDetails) setProjectDetails(data.projectDetails);
-          if (data.projectStudents) setProjectStudents(data.projectStudents);
-          if (data.compDetails) setCompDetails(data.compDetails);
-          if (data.compStudents) setCompStudents(data.compStudents);
+      if (data && data.timestamp) {
+        if (data.timestamp > lastHttpsTsRef.current) {
+          lastHttpsTsRef.current = data.timestamp;
+          isInternalHistoryChangeRef.current = true;
+          try {
+            if (data.projectDetails) setProjectDetails(data.projectDetails);
+            if (data.projectStudents) setProjectStudents(data.projectStudents);
+            if (data.compDetails) setCompDetails(data.compDetails);
+            if (data.compStudents) setCompStudents(data.compStudents);
 
-          setPeerStatus('connected');
-          setStatusMsg(`Synced update received via Cloud Relay at ${new Date().toLocaleTimeString()}`);
-          addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
-        } finally {
-          setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
+            setStatusMsg(`Synced update received via Cloud Relay at ${new Date().toLocaleTimeString()}`);
+            addP2pLog(`HTTPS Cloud: Synced state update received for Room ${targetCode}`);
+          } finally {
+            setTimeout(() => { isInternalHistoryChangeRef.current = false; }, 100);
+          }
         }
+
+        // Always mark status as connected when room data payload is retrieved!
+        setPeerStatus(prev => (prev === 'connected' ? prev : 'connected'));
+        setSyncMode('https');
       }
     }, 1200);
   };
